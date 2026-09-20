@@ -24,6 +24,7 @@ export interface GameState {
 export type Action =
   | { type: 'move'; player: Player; index: number }
   | { type: 'undo' }
+  | { type: 'resetScore' }
   | { type: 'restart'; firstPlayer: Player };
 
 export const initialState = (firstPlayer: Player = HUMAN): GameState => ({
@@ -64,6 +65,8 @@ export function gameReducer(state: GameState, action: Action): GameState {
       if (lastHuman === -1) return state;
       return { ...state, moves: state.moves.slice(0, lastHuman) };
     }
+    case 'resetScore':
+      return { ...state, score: { you: 0, ai: 0, draws: 0 } };
     case 'restart':
       return { ...state, gameId: state.gameId + 1, firstPlayer: action.firstPlayer, moves: [] };
   }

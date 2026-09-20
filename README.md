@@ -19,6 +19,16 @@ Jogo da velha que você controla **falando** ("canto superior esquerdo!", "centr
 | ✨ **LLM (opcional)** | Gemini 3.1 Flash-Lite gera os comentários; Groq é o primeiro fallback e Claude o último. As chaves ficam na função serverless. Sem API disponível, o jogo usa frases locais. |
 | ♿ **Acessível** | Dá para jogar por voz, clique ou teclado (1–9 e N). Tem `aria-live` nos status, respeita `prefers-reduced-motion` e o tema claro/escuro do sistema. |
 
+## Primeiro acesso e dados locais
+
+No primeiro acesso, uma apresentação explica as regras, os comandos e como permitir o microfone. A pessoa escolhe português ou inglês e pode começar com microfone ou jogar por clique/teclado. O botão **Como jogar** reabre as instruções.
+
+Idioma, dificuldade, quem começa, voz da IA, conclusão da apresentação e placar (vitórias, derrotas e empates) são salvos no `localStorage` deste navegador. O placar pode ser apagado em **Zerar placar**. Ao recarregar, começa um novo tabuleiro com o placar acumulado; o histórico de casas da partida não é armazenado.
+
+O microfone é ativado por um clique em cada visita. A permissão é controlada pelo navegador e não pode ser concedida pelo `localStorage`. Se o acesso for negado, o jogo orienta a conferir as permissões do site e continua disponível por clique ou teclado.
+
+Os dados não são sincronizados entre dispositivos ou domínios e podem desaparecer ao limpar os dados do site ou encerrar uma sessão privada. Se o armazenamento estiver indisponível, o jogo continua funcionando e informa que não conseguiu salvar. Referência: [Web Storage API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Storage_API).
+
 ## Rodando
 
 ```bash
@@ -32,7 +42,7 @@ O reconhecimento de voz funciona no **Chrome e no Edge** (e no Safari em parte).
 
 ## Publicar na Vercel
 
-Acesse a [aplicação publicada](https://voice-tic-tac-toe-mu.vercel.app/) ou siga o [guia de conta e deploy na Vercel](docs/vercel-deploy.md) para publicar sua própria versão. O guia explica a plataforma, a criação da conta, a importação do GitHub, as variáveis de ambiente, o deploy e a solução de problemas.
+Pushes na branch `main` publicam sozinhos: o workflow [`ci.yml`](.github/workflows/ci.yml) roda os testes e o build e, passando, faz o deploy de produção; pull requests ganham um preview com o link comentado no PR. Acesse a [aplicação publicada](https://voice-tic-tac-toe-mu.vercel.app/) ou siga o [guia de conta e deploy na Vercel](docs/vercel-deploy.md) para publicar sua própria versão. O guia explica a plataforma, a criação da conta, a importação do GitHub, as variáveis de ambiente, o deploy e a solução de problemas. Numa cópia sua, o deploy automático exige três secrets no GitHub — o passo a passo está em [Configurar do zero](docs/vercel-deploy.md#configurar-do-zero).
 
 Para configurar os provedores, consulte também o [guia de chaves dos LLMs](docs/llm-api-keys.md).
 
@@ -136,7 +146,7 @@ Tic-tac-toe you play **by voice**. Say "top left", "center" or "five", and an AI
   - Optionally set `GROQ_API_KEY` for the first fallback (`qwen/qwen3.8-27b`); override with `GROQ_MODEL`.
   - Optionally set `ANTHROPIC_API_KEY` for the last fallback to `claude-haiku-4-5`; override with `ANTHROPIC_MODEL`. Claude requests use your Anthropic API billing.
   - Each provider has a 1.5-second timeout; the frontend has a 6-second total deadline. A single configured provider also works.
-- React 19, TypeScript (strict), Vite, Vitest, GitHub Actions CI
+- React 19, TypeScript (strict), Vite, Vitest, GitHub Actions CI with test-gated Vercel deploys
 
 ```bash
 npm install && npm run dev
