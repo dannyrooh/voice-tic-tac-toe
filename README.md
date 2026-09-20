@@ -4,7 +4,7 @@ Jogo da velha que você controla **falando** ("canto superior esquerdo!", "centr
 
 > Speak your move, and an AI opponent answers out loud. It's built with React 19, TypeScript, the Web Speech API and minimax, with optional Gemini commentary, Groq fallback and Claude as the last provider. [English below ↓](#english)
 
-**▶ Demo:** _adicione aqui o link da Vercel depois do deploy_
+**▶ Demo:** [Jogar Voice Tic-Tac-Toe](https://voice-tic-tac-toe-mu.vercel.app/)
 
 <!-- Depois do deploy, grave um GIF curto jogando por voz e coloque aqui: ![demo](docs/demo.gif) -->
 
@@ -29,6 +29,12 @@ npm run build
 ```
 
 O reconhecimento de voz funciona no **Chrome e no Edge** (e no Safari em parte). Em `localhost` ou HTTPS, o navegador pede permissão para usar o microfone.
+
+## Publicar na Vercel
+
+Acesse a [aplicação publicada](https://voice-tic-tac-toe-mu.vercel.app/) ou siga o [guia de conta e deploy na Vercel](docs/vercel-deploy.md) para publicar sua própria versão. O guia explica a plataforma, a criação da conta, a importação do GitHub, as variáveis de ambiente, o deploy e a solução de problemas.
+
+Para configurar os provedores, consulte também o [guia de chaves dos LLMs](docs/llm-api-keys.md).
 
 ## Como a voz funciona
 
@@ -114,6 +120,8 @@ Começou em 2022 como o tutorial oficial do React (componentes de classe, CRA). 
 ---
 
 ## English
+
+**[Play the live demo](https://voice-tic-tac-toe-mu.vercel.app/)** · [Vercel account and deployment guide (Portuguese)](docs/vercel-deploy.md)
 
 Tic-tac-toe you play **by voice**. Say "top left", "center" or "five", and an AI opponent replies out loud with context-aware trash talk. It detects when it blocked you, set a trap or won.
 
