@@ -48,6 +48,9 @@ jobs:
       - run: npm install -g $VERCEL_CLI
       - run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
       - run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          BUILD_COMMIT: ${{ github.event.pull_request.head.sha }}
+          BUILD_BRANCH: ${{ github.head_ref }}
       - id: deploy
         run: echo "url=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})" >> "$GITHUB_OUTPUT"
       - name: Publicar o link no pull request
@@ -81,6 +84,9 @@ jobs:
       - run: npm install -g $VERCEL_CLI
       - run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
       - run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          BUILD_COMMIT: ${{ github.sha }}
+          BUILD_BRANCH: ${{ github.ref_name }}
       - id: deploy
         run: echo "url=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})" >> "$GITHUB_OUTPUT"
       - name: Resumo do deploy
