@@ -4,11 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content="Jogo da velha controlado por voz contra uma IA que comenta a partida. React 19 + TypeScript + Web Speech API." />
-    <meta name="theme-color" content="#0f1220" />
+    <meta name="theme-color" content="#0E1116" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap" />
     <title>Voice Tic-Tac-Toe · Jogo da Velha por Voz</title>
     <script>
       // Paint the saved theme before first render so there is no flash of the wrong one.
@@ -19,7 +22,7 @@
           choice = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
         }
         document.documentElement.dataset.theme = choice;
-        document.querySelector('meta[name="theme-color"]').content = choice === 'light' ? '#f5f6fb' : '#0f1220';
+        document.querySelector('meta[name="theme-color"]').content = choice === 'light' ? '#F1F4F9' : '#0E1116';
       } catch (e) { /* storage blocked: the CSS media-query fallback still applies */ }
     </script>
   </head>
