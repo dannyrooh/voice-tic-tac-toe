@@ -134,4 +134,9 @@ Tic-tac-toe you play **by voice**. Say "top left", "center" or "five", and an AI
 npm install && npm run dev
 ```
 
+## Contributors
+
+- **dannyrooh** — autor e mantenedor do projeto.
+- **Codex (OpenAI)** — assistente de IA que colaborou na integração dos provedores de LLM, nos testes de fallback e na documentação de configuração.
+
 MIT © dannyrooh
