@@ -2,11 +2,26 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content="Jogo da velha controlado por voz contra uma IA que comenta a partida. React 19 + TypeScript + Web Speech API." />
     <meta name="theme-color" content="#0f1220" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <title>Voice Tic-Tac-Toe · Jogo da Velha por Voz</title>
+    <script>
+      // Paint the saved theme before first render so there is no flash of the wrong one.
+      try {
+        var saved = JSON.parse(localStorage.getItem('voice-tic-tac-toe:v1') || 'null');
+        var choice = saved && saved.theme;
+        if (choice !== 'light' && choice !== 'dark') {
+          choice = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        }
+        document.documentElement.dataset.theme = choice;
+        document.querySelector('meta[name="theme-color"]').content = choice === 'light' ? '#f5f6fb' : '#0f1220';
+      } catch (e) { /* storage blocked: the CSS media-query fallback still applies */ }
+    </script>
   </head>
   <body>
     <div id="root"></div>
