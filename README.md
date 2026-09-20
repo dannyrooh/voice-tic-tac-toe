@@ -2,7 +2,7 @@
 
 Jogo da velha que você controla **falando** ("canto superior esquerdo!", "centro!", "novo jogo!"). Você joga contra uma **IA que responde em voz alta** e comenta a partida. Tem três níveis de dificuldade, e o mais difícil nunca perde.
 
-> Speak your move, and an AI opponent answers out loud. It's built with React 19, TypeScript, the Web Speech API and minimax, with optional commentary written by Claude. [English below ↓](#english)
+> Speak your move, and an AI opponent answers out loud. It's built with React 19, TypeScript, the Web Speech API and minimax, with optional Gemini commentary, Groq fallback and Claude as the last provider. [English below ↓](#english)
 
 **▶ Demo:** _adicione aqui o link da Vercel depois do deploy_
 
@@ -16,7 +16,7 @@ Jogo da velha que você controla **falando** ("canto superior esquerdo!", "centr
 | 🔊 **A IA fala** | A síntese de voz lê os comentários da IA. O microfone ignora a própria voz da IA para não jogar sozinho. |
 | 🧠 **Oponente com IA** | Minimax completo: o nível *Impossível* é imbatível (testado contra todas as partidas possíveis). O *Médio* bloqueia e ataca, mas erra. O *Fácil* é para relaxar. |
 | 💬 **Comentários contextuais** | A IA percebe quando bloqueou você, quando criou uma ameaça ou uma armadilha dupla (*fork*), e quando a partida terminou em vitória ou empate. |
-| ✨ **Claude (opcional)** | Com uma chave da Anthropic, os comentários passam a ser escritos pelo Claude por meio de uma função serverless. A chave nunca vai para o navegador. Sem chave, o jogo usa um banco de frases local. |
+| ✨ **LLM (opcional)** | Gemini 3.1 Flash-Lite gera os comentários; Groq é o primeiro fallback e Claude o último. As chaves ficam na função serverless. Sem API disponível, o jogo usa frases locais. |
 | ♿ **Acessível** | Dá para jogar por voz, clique ou teclado (1–9 e N). Tem `aria-live` nos status, respeita `prefers-reduced-motion` e o tema claro/escuro do sistema. |
 
 ## Rodando
@@ -24,7 +24,7 @@ Jogo da velha que você controla **falando** ("canto superior esquerdo!", "centr
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # 41 testes (lógica, IA, parser de voz, comentários)
+npm test           # lógica, IA, parser de voz, comentários e fallback de APIs
 npm run build
 ```
 
@@ -56,36 +56,41 @@ microfone → SpeechRecognition → texto → parseCommand → jogada → IA jog
 - **Internet:** no Chrome, o áudio é transcrito pelos servidores do Google.
 - **Voz em português:** para a IA falar em pt-BR, o sistema precisa ter uma voz pt-BR instalada. No Windows ela normalmente já vem.
 
-## Comentários com Claude (opcional)
+## Comentários com Gemini, Groq e Claude (opcional)
 
-Sem configuração nenhuma, a IA comenta a partida com um banco de frases local. Com uma chave da Anthropic, os comentários passam a ser escritos pelo Claude. A chamada passa pela função serverless [`api/commentary.ts`](api/commentary.ts), e a chave **nunca vai para o navegador**.
+O provedor padrão é **Gemini 3.1 Flash-Lite** (`gemini-3.1-flash-lite`). Se ele falhar, exceder a cota, retornar uma resposta vazia ou demorar mais de 1,5 s, a função tenta **Groq** (`qwen/qwen3.8-27b`). Somente se ambos falharem ou não tiverem chave, tenta **Claude Haiku 4.5** (`claude-haiku-4-5`). Se nenhum responder, o jogo usa seu banco de frases local.
 
-### Como adicionar a chave
+Cada provedor tem um timeout de 1,5 s; o frontend mantém o limite total de 6 s, incluindo o transporte. Uma resposta mais lenta cai nas frases locais para não travar a partida. Se apenas uma chave estiver configurada, somente esse provedor será chamado. Sem chaves, o jogo continua funcionando com frases locais.
 
-1. Crie uma chave em [console.anthropic.com](https://console.anthropic.com/) → *API Keys*. Ela começa com `sk-ant-`.
-2. Faça o deploy na Vercel. Ela detecta o Vite e a pasta `api/` automaticamente.
-3. Em *Project Settings → Environment Variables*, crie estas variáveis e faça o redeploy:
+### Configuração
+
+Veja o [guia para gerar e configurar as chaves dos LLMs](docs/llm-api-keys.md), com instruções para Gemini, Groq e Claude, execução local, Vercel e diagnóstico de erros.
+
+1. Crie uma chave do Gemini no [Google AI Studio](https://aistudio.google.com/apikey).
+2. Opcionalmente, crie uma chave na [Groq](https://console.groq.com/keys) para o primeiro fallback e uma chave da Anthropic em [console.anthropic.com](https://console.anthropic.com/) para habilitar o último fallback, Claude.
+3. Na Vercel, configure em *Project Settings → Environment Variables* e faça o redeploy:
 
    | Variável | Valor | Onde é usada |
    |---|---|---|
-   | `ANTHROPIC_API_KEY` | `sk-ant-...` | Só no servidor. **Nunca** use o prefixo `VITE_`, porque isso expõe a chave no navegador. |
-   | `VITE_LLM_COMMENTARY` | `true` | No frontend. Faz o app chamar `/api/commentary`. |
-   | `ANTHROPIC_MODEL` | opcional, o padrão é `claude-haiku-4-5` | Só no servidor. |
+   | `VITE_LLM_COMMENTARY` | `true` | Frontend: habilita `/api/commentary`. |
+   | `GEMINI_API_KEY` | Sua chave do Google AI Studio | Somente servidor. |
+   | `GEMINI_MODEL` | Opcional; padrão `gemini-3.1-flash-lite` | Somente servidor. |
+   | `GROQ_API_KEY` | Opcional; sua chave Groq | Somente servidor; primeiro fallback. |
+   | `GROQ_MODEL` | Opcional; padrão `qwen/qwen3.8-27b` | Somente servidor. |
+   | `ANTHROPIC_API_KEY` | Opcional; sua chave Anthropic | Somente servidor; habilita o fallback. |
+   | `ANTHROPIC_MODEL` | Opcional; padrão `claude-haiku-4-5` | Somente servidor. |
 
-4. **Para rodar localmente com o Claude:**
-   - Copie o [`.env.example`](.env.example) para `.env.local`.
-   - Preencha a chave.
-   - Rode `npx vercel dev`.
+**Nunca use o prefixo `VITE_` nas chaves de API**, pois isso as expõe ao navegador.
 
-   O `npm run dev` roda só o frontend. Sem a rota `/api/commentary`, ele usa as frases locais.
+O Gemini oferece um plano gratuito sujeito a cotas e disponibilidade; consulte os [preços oficiais](https://ai.google.dev/gemini-api/docs/pricing). O fallback Claude usa a cobrança da sua conta Anthropic quando acionado. Para usar Gemini, Groq e frases locais, deixe `ANTHROPIC_API_KEY` vazia.
 
-Se a API falhar ou demorar mais de 4 s, o jogo volta para as frases locais e a partida não trava.
+### Desenvolvimento local
 
-### Modelo
+Se ainda não tiver um arquivo de ambiente, copie [`.env.example`](.env.example) para `.env.local`; se já usa `.env`, mantenha-o. Preencha as chaves desejadas e rode `npx vercel dev` para servir o frontend e a função [`api/commentary.ts`](api/commentary.ts).
 
-- **Modelo padrão:** `claude-haiku-4-5` (Claude Haiku 4.5). É o que o código usa quando `ANTHROPIC_MODEL` não está definido.
-- **Modelo mínimo recomendado (setembro de 2026):** **Claude Haiku 4.5**. É o menor e mais barato modelo atual da Anthropic (US$ 1 por milhão de tokens de entrada e US$ 5 por milhão de saída). A tarefa é uma frase de no máximo 14 palavras, então um modelo maior não traz ganho perceptível. Cada comentário custa uma fração de centavo.
-- **Outros modelos:** `claude-sonnet-4-6` funciona sem mudanças no código. Já **Claude Opus 5 e Claude Sonnet 5** pensam antes de responder (*adaptive thinking*) por padrão. Com o limite de `max_tokens: 80` da função, o raciocínio pode consumir todos os tokens e a resposta vir vazia. Nesse caso o jogo cai nas frases locais. Para usar esses modelos, ajuste o `max_tokens` em [`api/commentary.ts`](api/commentary.ts).
+`npm run dev` serve somente o frontend; sem `/api/commentary`, os comentários usam as frases locais. Para desativar chamadas de LLM, configure `VITE_LLM_COMMENTARY=false`.
+
+O Gemini usa `thinkingLevel: minimal` e até 128 tokens de saída; a Groq usa até 256 tokens de saída e o Claude usa até 80 tokens. O prompt pede uma frase de até 14 palavras em português ou inglês. Modelos alternativos devem ser compatíveis com essas opções.
 
 ## Arquitetura
 
@@ -97,7 +102,7 @@ src/
   components/  tabuleiro
   App.tsx      orquestra turnos, voz, teclado e comentários
 api/
-  commentary.ts  função serverless (Vercel) que chama a API da Anthropic
+  commentary.ts  função serverless (Vercel): Gemini → Groq → Claude → frases locais no frontend
 ```
 
 As regras do jogo, a IA e o parser de voz são **TypeScript puro, sem React**, e por isso são fáceis de testar e de reaproveitar em um bot de voz por telefone ou WhatsApp, por exemplo.
@@ -116,9 +121,13 @@ Tic-tac-toe you play **by voice**. Say "top left", "center" or "five", and an AI
 - **Voice output** through speech synthesis; the mic ignores the AI's own voice
 - **Minimax AI** with 3 levels; *Unbeatable* is verified against every possible game
 - **No API key needed for voice**: speech recognition and synthesis are built into the browser (Chrome/Edge)
-- **Optional Claude commentary** through a Vercel serverless function. The API key stays server-side, and the game falls back to a local phrase bank if the API fails. To enable it:
-  - Set `ANTHROPIC_API_KEY` (server-only) and `VITE_LLM_COMMENTARY=true` in Vercel, or in `.env.local` with `npx vercel dev`.
-  - The default model is `claude-haiku-4-5`, the smallest current Claude model as of Sep 2026 and the recommended minimum.
+- **API key setup:** see the [step-by-step guide (Portuguese)](docs/llm-api-keys.md).
+- **Optional Gemini commentary with Groq, then Claude fallback** through a Vercel serverless function. API keys stay server-side. Gemini errors, empty responses or timeouts trigger Groq, then Claude; if none succeeds, the game uses local phrases.
+  - Set `VITE_LLM_COMMENTARY=true` and `GEMINI_API_KEY` in Vercel, or in `.env.local` with `npx vercel dev`.
+  - Default: `gemini-3.1-flash-lite`; override with `GEMINI_MODEL`.
+  - Optionally set `GROQ_API_KEY` for the first fallback (`qwen/qwen3.8-27b`); override with `GROQ_MODEL`.
+  - Optionally set `ANTHROPIC_API_KEY` for the last fallback to `claude-haiku-4-5`; override with `ANTHROPIC_MODEL`. Claude requests use your Anthropic API billing.
+  - Each provider has a 1.5-second timeout; the frontend has a 6-second total deadline. A single configured provider also works.
 - React 19, TypeScript (strict), Vite, Vitest, GitHub Actions CI
 
 ```bash
