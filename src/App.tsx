@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { loadPreferences, savePreferences } from './storage/preferences.ts';
 import { Board } from './components/Board.tsx';
+import { About } from './components/About.tsx';
 import { Settings } from './components/Settings.tsx';
 import { BrandMark, CloseIcon, GearIcon, HelpIcon, MicIcon, MoonIcon, SunIcon } from './components/icons.tsx';
 import { getComment } from './commentary/comment.ts';
@@ -30,12 +31,14 @@ export default function App() {
   const [onboardingDone, setOnboardingDone] = useState(saved.onboardingDone);
   const [showHelp, setShowHelp] = useState(!saved.onboardingDone);
   const [showSettings, setShowSettings] = useState(false);
+  const [showAbout, setShowAbout] = useState(false);
   const [storageAvailable, setStorageAvailable] = useState(true);
   const [state, dispatch] = useReducer(gameReducer, saved, (settings) => ({
     ...initialState(settings.aiStarts ? AI : HUMAN), score: settings.score,
   }));
   const welcomeRef = useRef<HTMLHeadingElement>(null);
   const settingsRef = useRef<HTMLHeadingElement>(null);
+  const aboutRef = useRef<HTMLHeadingElement>(null);
   const helpButtonRef = useRef<HTMLButtonElement>(null);
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -64,7 +67,7 @@ export default function App() {
   const turn = currentPlayer(state);
   const aiTurn = !over && turn === AI;
   const lastMove = state.moves.at(-1)?.index ?? null;
-  const dialogOpen = showHelp || showSettings;
+  const dialogOpen = showHelp || showSettings || showAbout;
 
   // Latest values for callbacks that outlive a render (speech events, timers).
   const live = useRef({ state, lang, voiceOut, aiStarts });
@@ -174,6 +177,7 @@ export default function App() {
     stopSpeaking();
     ++commentToken.current;
     setShowSettings(false);
+    setShowAbout(false);
     setShowHelp(true);
   };
 
@@ -199,17 +203,20 @@ export default function App() {
     wasSettingsOpen.current = showSettings;
   }, [showSettings]);
 
+  useEffect(() => { if (showAbout) aboutRef.current?.focus(); }, [showAbout]);
+
   // Esc closes whichever dialog is open (the welcome one only once it has been seen).
   useEffect(() => {
     if (!dialogOpen) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
-      if (showSettings) setShowSettings(false);
+      if (showAbout) setShowAbout(false); // volta para Configurações
+      else if (showSettings) setShowSettings(false);
       else if (onboardingDone) setShowHelp(false);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [dialogOpen, showSettings, onboardingDone]);
+  }, [dialogOpen, showAbout, showSettings, onboardingDone]);
 
   // Lock the page behind a dialog so mobile doesn't scroll the game underneath.
   useEffect(() => {
@@ -414,7 +421,25 @@ export default function App() {
                 onResetScore={() => {
                   if (window.confirm(t.confirmResetScore)) dispatch({ type: 'resetScore' });
                 }}
+                onAbout={() => setShowAbout(true)}
               />
+            </div>
+          </section>
+        </div>
+      )}
+
+      {showAbout && (
+        <div className="sheet sheet--stacked" role="dialog" aria-modal="true" aria-labelledby="about-title">
+          <section className="sheet__card">
+            <header className="sheet__head">
+              <BrandMark />
+              <h2 id="about-title" ref={aboutRef} tabIndex={-1}>{t.about}</h2>
+              <button type="button" className="iconbtn" aria-label={t.close} onClick={() => setShowAbout(false)}>
+                <CloseIcon />
+              </button>
+            </header>
+            <div className="sheet__body">
+              <About t={t} lang={lang} />
             </div>
           </section>
         </div>

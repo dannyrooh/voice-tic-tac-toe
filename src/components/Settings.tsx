@@ -17,6 +17,7 @@ interface Props {
   onAiStarts: (value: boolean) => void;
   onVoiceOut: (value: boolean) => void;
   onResetScore: () => void;
+  onAbout: () => void;
 }
 
 /** A row of mutually exclusive choices — replaces the native selects of v1. */
@@ -83,6 +84,7 @@ export function Settings(props: Props) {
       {!props.storageAvailable && <p className="note" role="status">{t.storageUnavailable}</p>}
 
       <button type="button" className="btn btn--ghost" onClick={props.onResetScore}>{t.resetScore}</button>
+      <button type="button" className="btn btn--ghost" onClick={props.onAbout}>{t.about}</button>
     </div>
   );
 }

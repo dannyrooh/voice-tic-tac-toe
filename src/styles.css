@@ -443,3 +443,22 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* --- Página "Sobre" ------------------------------------------------------ */
+/* Empilhada acima de Configurações: fecha e volta para de onde veio. */
+.sheet--stacked { z-index: 60; }
+
+.about__tagline { margin: 0 0 22px; font-size: 15px; line-height: 1.5; color: var(--muted); }
+
+.facts { margin: 0 0 22px; display: flex; flex-direction: column; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius-sm); overflow: hidden; }
+.facts__row { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding: 13px 14px; background: var(--bg); }
+.facts dt { flex-shrink: 0; font-size: 13.5px; color: var(--muted); }
+.facts dd { margin: 0; font-size: 14px; font-weight: 600; text-align: right; overflow-wrap: anywhere; }
+.facts code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+.facts a { color: var(--x); }
+
+.badge { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--surface-2); color: var(--muted); }
+.badge--production { background: color-mix(in srgb, var(--win) 18%, var(--surface)); color: var(--win); }
+.badge--preview { background: color-mix(in srgb, var(--o) 18%, var(--surface)); color: var(--o); }
+
+.about .note a { color: var(--x); }
