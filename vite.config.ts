@@ -15,9 +15,15 @@ const git = (command: string): string => {
   }
 };
 
-// On Vercel the commit comes from the platform; locally it comes from git.
-const commit = process.env.VERCEL_GIT_COMMIT_SHA || git('git rev-parse HEAD');
-const branch = process.env.VERCEL_GIT_COMMIT_REF || git('git rev-parse --abbrev-ref HEAD');
+// O build acontece no runner do GitHub (`vercel build --prebuilt`), onde as
+// variáveis VERCEL_GIT_* não existem e o checkout fica em HEAD destacado —
+// `git rev-parse` devolveria o commit de merge e a branch como "HEAD". Por
+// isso o workflow passa BUILD_COMMIT/BUILD_BRANCH explicitamente, e eles têm
+// precedência. As demais origens cobrem o build feito na própria Vercel e o
+// build local.
+const commit = process.env.BUILD_COMMIT || process.env.VERCEL_GIT_COMMIT_SHA || git('git rev-parse HEAD');
+const rawBranch = process.env.BUILD_BRANCH || process.env.VERCEL_GIT_COMMIT_REF || git('git rev-parse --abbrev-ref HEAD');
+const branch = rawBranch === 'HEAD' ? '' : rawBranch;
 
 const buildInfo = {
   version: pkg.version,
