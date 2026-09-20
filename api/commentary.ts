@@ -1,11 +1,6 @@
 /**
- * Vercel serverless function: short, playful commentary from Claude.
- *
- * Optional — the game works fully offline with its local phrase bank.
- * Enable with:
- *   ANTHROPIC_API_KEY=sk-ant-...        (server-side only, never exposed to the browser)
- *   VITE_LLM_COMMENTARY=true            (tells the frontend to call this endpoint)
- *   ANTHROPIC_MODEL=claude-haiku-4-5    (optional override)
+ * Optional commentary: Gemini first, Groq second, Claude last, then local phrases in the client.
+ * API keys stay server-side. Enable the client with VITE_LLM_COMMENTARY=true.
  */
 
 const EVENTS = new Set([
@@ -47,8 +42,7 @@ const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
 
 export async function POST(request: Request): Promise<Response> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return json({ error: 'LLM commentary not configured' }, 501);
+  if (!process.env.GEMINI_API_KEY && !process.env.GROQ_API_KEY && !process.env.ANTHROPIC_API_KEY) return json({ error: 'LLM commentary not configured' }, 501);
 
   let body: unknown;
   try {
@@ -72,25 +66,86 @@ export async function POST(request: Request): Promise<Response> {
     `No emojis, no quotes, no markdown — it will be read aloud by text-to-speech.`,
   ].filter(Boolean).join('\n\n');
 
-  try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5',
-        max_tokens: 80,
-        messages: [{ role: 'user', content: prompt }],
-      }),
-    });
-    if (!res.ok) return json({ error: `Upstream ${res.status}` }, 502);
-    const data = (await res.json()) as { content?: { type: string; text?: string }[] };
-    const text = data.content?.find((c) => c.type === 'text')?.text?.trim() ?? '';
-    return json({ text });
-  } catch {
-    return json({ error: 'Upstream unavailable' }, 502);
+  // Fixed priority: Claude is only attempted after Gemini and Groq fail or lack keys.
+  for (const generate of [geminiComment, groqComment, claudeComment]) {
+    try {
+      const text = await generate(prompt);
+      if (text) return json({ text });
+    } catch {
+      // Timeouts, rate limits, invalid responses and network errors try the next provider.
+    }
   }
+  return json({ error: 'Upstream unavailable' }, 502);
+}
+
+// Three provider attempts leave room for transport within the client's 6-second deadline.
+const PROVIDER_TIMEOUT_MS = 1500;
+
+async function geminiComment(prompt: string): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return '';
+  const model = process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite';
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+    {
+      method: 'POST',
+      headers: { 'x-goog-api-key': apiKey, 'content-type': 'application/json' },
+      signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: {
+          maxOutputTokens: 128,
+          thinkingConfig: { thinkingLevel: 'minimal' },
+        },
+      }),
+    },
+  );
+  if (!res.ok) throw new Error('Gemini unavailable');
+  const data = (await res.json()) as {
+    candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] } }[];
+  };
+  return data.candidates?.[0]?.content?.parts
+    ?.filter((part) => !part.thought && typeof part.text === 'string')
+    .map((part) => part.text).join('').trim() ?? '';
+}
+
+async function groqComment(prompt: string): Promise<string> {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) return '';
+  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
+    signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
+    body: JSON.stringify({
+      model: process.env.GROQ_MODEL || 'qwen/qwen3.8-27b',
+      max_completion_tokens: 256,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  });
+  if (!res.ok) throw new Error('Groq unavailable');
+  const data = (await res.json()) as { choices?: { message?: { content?: unknown } }[] };
+  const text = data.choices?.[0]?.message?.content;
+  return typeof text === 'string' ? text.trim() : '';
+}
+
+async function claudeComment(prompt: string): Promise<string> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return '';
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json',
+    },
+    signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
+    body: JSON.stringify({
+      model: process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5',
+      max_tokens: 80,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  });
+  if (!res.ok) throw new Error('Claude unavailable');
+  const data = (await res.json()) as { content?: { type: string; text?: string }[] };
+  return data.content?.find((c) => c.type === 'text')?.text?.trim() ?? '';
 }

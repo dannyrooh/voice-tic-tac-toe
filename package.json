@@ -2,7 +2,7 @@
   "name": "voice-tic-tac-toe",
   "version": "2.0.0",
   "private": true,
-  "description": "Voice-controlled tic-tac-toe against an AI that talks back. React 19 + TypeScript + Web Speech API + minimax, with optional Claude commentary.",
+  "description": "Voice-controlled tic-tac-toe against an AI that talks back. React 19 + TypeScript + Web Speech API + minimax, with optional Gemini commentary, Groq fallback and Claude as the last provider.",
   "type": "module",
   "author": "dannyrooh",
   "license": "MIT",

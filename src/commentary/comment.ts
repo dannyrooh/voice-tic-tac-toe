@@ -21,7 +21,7 @@ const LLM_ENABLED = import.meta.env?.VITE_LLM_COMMENTARY === 'true';
 
 /**
  * Commentary for a game event. When VITE_LLM_COMMENTARY=true the text comes from
- * Claude through the /api/commentary serverless function; any failure or slow
+ * Gemini (with Groq, then Claude fallback) through /api/commentary; any failure or slow
  * response falls back to the local phrase bank so the game never stalls.
  */
 export async function getComment(req: CommentRequest): Promise<string> {
@@ -31,7 +31,7 @@ export async function getComment(req: CommentRequest): Promise<string> {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(req),
-      signal: AbortSignal.timeout(4000),
+      signal: AbortSignal.timeout(6000),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = (await res.json()) as { text?: string };
