@@ -67,6 +67,8 @@ Após alterar variáveis, crie um novo deploy para aplicá-las. Veja a [document
 
 O jogo falar não comprova uso de um LLM: ele também fala as frases locais quando a API falha. A ordem das tentativas é Gemini → Groq → Claude, seguida das frases locais. Cada provedor tem até 1,5 segundo; o frontend espera até 6 segundos.
 
+Esse primeiro deploy é manual, feito pelo painel. As publicações seguintes passam a ser automáticas assim que você configurar a seção abaixo.
+
 ## Deploy automático pelo GitHub Actions
 
 Este repositório publica sozinho pelo workflow [`.github/workflows/ci.yml`](../.github/workflows/ci.yml). O deploy só acontece depois que `npm test` e `npm run build` passam, de modo que código quebrado não chega à produção:
@@ -81,24 +83,84 @@ Este repositório publica sozinho pelo workflow [`.github/workflows/ci.yml`](../
 
 O arquivo [`vercel.json`](../vercel.json) traz `"git": { "deploymentEnabled": false }`. Isso desliga o gatilho automático da integração Git da Vercel para que o workflow seja o único responsável pelas publicações — sem ele, cada push geraria dois deploys, um deles sem passar pelos testes.
 
-### Configurar os três secrets
+> **Há uma janela sem publicação nenhuma.** O gatilho da Vercel está desligado pelo `vercel.json`, e o workflow só consegue publicar depois que os três secrets existirem. Entre o primeiro deploy pelo painel e o fim da configuração abaixo, nenhum push chega ao ar. Se precisar publicar nesse intervalo, use **Redeploy** no painel.
 
-O workflow precisa de três valores guardados em **Settings → Secrets and variables → Actions → New repository secret** no GitHub.
+### Configurar do zero
 
-1. **`VERCEL_TOKEN`** — crie em [vercel.com/account/settings/tokens](https://vercel.com/account/settings/tokens). Dê um nome como `github-actions`, escolha o escopo da conta ou do time e copie o valor: ele aparece uma única vez.
+Siga na ordem. Os passos 2 e 3 precisam de acesso à conta da Vercel; o 4 exige permissão de administrador no repositório do GitHub.
 
-   > **Atenção ao campo SCOPE.** Ele lista tanto times quanto projetos individuais. Escolher o projeto (`voice-tic-tac-toe`) gera um token que lê a API REST, mas com o qual a CLI da Vercel não funciona: toda operação dela começa resolvendo o usuário, e um token de projeto não resolve nenhum. O sintoma é `vercel pull` falhar com *Could not retrieve Project Settings* — ou, rodando com `--scope`, *Not able to load user because of unexpected error: User not found (404)*. Selecione o time no SCOPE. Na lista de tokens, a coluna *Scope* mostra qual foi escolhido: se aparecer o nome do projeto ali, o token não serve para o deploy. O comprimento do valor não distingue os dois tipos — só o escopo.
+#### 1. Confirme que o workflow existe
 
-2. **`VERCEL_ORG_ID`** e **`VERCEL_PROJECT_ID`** — ligue a pasta local ao projeto da Vercel e leia o arquivo gerado:
+```bash
+ls .github/workflows/ci.yml
+```
 
-   ```bash
-   npx vercel link
-   cat .vercel/project.json
-   ```
+Um fork já traz o arquivo. Se ele não existir — num repositório criado do zero, por exemplo —, copie-o deste repositório. O que importa na estrutura: os jobs `deploy-preview` e `deploy-production` declaram `needs: test`, e é essa linha que impede a publicação quando os testes falham. Os dois usam `--prebuilt`, ou seja, o build acontece no runner do GitHub e só a saída pronta é enviada à Vercel.
 
-   A saída traz `"orgId"` e `"projectId"`. A pasta `.vercel/` está no `.gitignore` e não vai para o repositório. Os mesmos identificadores também aparecem em **Project Settings → General** no painel.
+#### 2. Crie o Access Token
 
-Com os três secrets salvos, o próximo push em `main` publica sozinho. Acompanhe em **Actions** no GitHub; o resumo da execução mostra a URL publicada.
+Abra [vercel.com/account/settings/tokens](https://vercel.com/account/settings/tokens) — clique no seu avatar, **Settings**, **Tokens**. Preencha nome, escopo e validade, e copie o valor: ele aparece uma única vez.
+
+> **Atenção ao campo SCOPE.** Ele lista tanto times quanto projetos individuais. Escolher o projeto gera um token que lê a API REST mas com o qual a CLI da Vercel não funciona: toda operação dela começa resolvendo o usuário, e um token de projeto não resolve nenhum. O sintoma é `vercel pull` falhar com *Could not retrieve Project Settings* — ou, rodando com `--scope`, *Not able to load user because of unexpected error: User not found (404)*. **Selecione o time no SCOPE.** Na lista de tokens, a coluna *Scope* mostra qual foi escolhido: se aparecer o nome do projeto ali, o token não serve para o deploy. O comprimento do valor não distingue os dois tipos — só o escopo.
+
+#### 3. Obtenha os dois identificadores
+
+```bash
+npx vercel link      # escolha a conta e o projeto quando perguntado
+cat .vercel/project.json
+```
+
+A saída traz `"orgId"` (começa com `team_`) e `"projectId"` (começa com `prj_`). A pasta `.vercel/` está no `.gitignore` e não vai para o repositório. Os mesmos identificadores aparecem em **Project Settings → General** no painel, caso prefira copiá-los de lá.
+
+#### 4. Grave os três secrets
+
+Pelo painel do GitHub: **Settings → Secrets and variables → Actions → New repository secret**, um para cada nome abaixo. Pela [CLI do GitHub](https://cli.github.com/), no diretório do projeto:
+
+```bash
+gh secret set VERCEL_TOKEN                          # cole o valor quando pedir
+gh secret set VERCEL_ORG_ID --body 'team_...'
+gh secret set VERCEL_PROJECT_ID --body 'prj_...'
+gh secret list
+```
+
+Sem `--body`, o `gh` lê da entrada padrão e o token não fica no histórico do shell. Os nomes precisam ser exatamente esses: são os que o workflow consulta.
+
+| Secret | Origem |
+|---|---|
+| `VERCEL_TOKEN` | Passo 2 |
+| `VERCEL_ORG_ID` | `orgId` do passo 3 |
+| `VERCEL_PROJECT_ID` | `projectId` do passo 3 |
+
+#### 5. Verifique antes de depender disso
+
+Rode localmente os dois primeiros passos do workflow. Eles não publicam nada — o `pull` baixa configurações e o `build` compila para uma pasta local:
+
+```bash
+export VERCEL_ORG_ID=team_...
+export VERCEL_PROJECT_ID=prj_...
+npx vercel pull --yes --environment=production --token=SEU_TOKEN
+npx vercel build --prod --token=SEU_TOKEN
+```
+
+O que esperar: `Downloaded project settings`, depois `Build completed successfully`. Confira também que a função entrou no pacote, senão `/api/commentary` responderá `404` em produção:
+
+```bash
+ls .vercel/output/functions/api
+```
+
+Limpe o que o teste deixou em disco — a cópia das variáveis de produção não precisa ficar na sua máquina:
+
+```bash
+rm -rf .vercel/output .vercel/.env.production.local
+```
+
+#### 6. Abra um pull request
+
+Publique uma branch e abra um PR. Essa é a primeira execução real do pipeline: acompanhe em **Actions** e confira que o job *Testes e build* passa, que *Deploy de preview* publica e que *Deploy de produção* é pulado — ele só roda em `main`. Passando, o link do preview aparece comentado no PR. O merge em `main` dispara o mesmo fluxo com o job de produção.
+
+### Previews protegidos por login
+
+O link do preview pode responder `302` para `vercel.com/sso-api` em vez de abrir o jogo. É a **Deployment Protection**, ligada por padrão nos previews: quem estiver logado na conta da Vercel passa direto, e qualquer outra pessoa vê a tela de login. Para compartilhar o preview com quem não tem acesso ao projeto, desligue em **Project Settings → Deployment Protection**.
 
 ### Republicar sem alterar código
 
@@ -106,7 +168,7 @@ Ao mudar variáveis de ambiente no painel, o código continua o mesmo e nenhum p
 
 - No GitHub, abra **Actions → CI & Deploy → Run workflow** e escolha a branch `main`. O fluxo roda os testes e republica a produção.
 - Ou, no painel da Vercel, abra **Deployments**, selecione o deploy e use **Redeploy**. Confira se o ambiente escolhido corresponde às variáveis alteradas.
-- Ou rode `npx vercel --prod` localmente, depois de `npx vercel link`.
+- Ou rode `npx vercel --prod` localmente, depois de `npx vercel link`. O `deploymentEnabled: false` desliga apenas o gatilho do Git; deploys pela CLI continuam funcionando.
 
 Consulte a [documentação de deploys](https://vercel.com/docs/deployments) e o [fluxo Git da Vercel](https://vercel.com/docs/git).
 
@@ -115,7 +177,9 @@ Consulte a [documentação de deploys](https://vercel.com/docs/deployments) e o 
 | Sintoma | O que conferir |
 |---|---|
 | Build falha | Abra os Build Logs; confira a raiz, os comandos e os erros de TypeScript ou dependências. |
+| Nenhum deploy acontece no push | Os três secrets não existem, ou a branch não é `main`. Confira `gh secret list` e a aba **Actions**. |
 | Workflow para antes do deploy | Os testes falharam: abra **Actions** no GitHub e veja o job *Testes e build*. |
+| Preview pede login da Vercel | Deployment Protection ativa; veja *Previews protegidos por login*. |
 | Workflow falha no `vercel pull` | Confira os três secrets. *Could not retrieve Project Settings* indica token do tipo errado: use um Access Token da conta, não um restrito ao projeto. |
 | Dois deploys por push | A integração Git da Vercel continua ativa: confirme `"deploymentEnabled": false` no `vercel.json` e o redeploy dessa alteração. |
 | Comentários sempre locais | Confira `VITE_LLM_COMMENTARY=true`, as chaves e se houve novo deploy após configurá-las. |

@@ -42,7 +42,7 @@ O reconhecimento de voz funciona no **Chrome e no Edge** (e no Safari em parte).
 
 ## Publicar na Vercel
 
-Pushes na branch `main` publicam sozinhos: o workflow [`ci.yml`](.github/workflows/ci.yml) roda os testes e o build e, passando, faz o deploy de produção; pull requests ganham um preview com o link comentado no PR. Acesse a [aplicação publicada](https://voice-tic-tac-toe-mu.vercel.app/) ou siga o [guia de conta e deploy na Vercel](docs/vercel-deploy.md) para publicar sua própria versão. O guia explica a plataforma, a criação da conta, a importação do GitHub, as variáveis de ambiente, o deploy e a solução de problemas.
+Pushes na branch `main` publicam sozinhos: o workflow [`ci.yml`](.github/workflows/ci.yml) roda os testes e o build e, passando, faz o deploy de produção; pull requests ganham um preview com o link comentado no PR. Acesse a [aplicação publicada](https://voice-tic-tac-toe-mu.vercel.app/) ou siga o [guia de conta e deploy na Vercel](docs/vercel-deploy.md) para publicar sua própria versão. O guia explica a plataforma, a criação da conta, a importação do GitHub, as variáveis de ambiente, o deploy e a solução de problemas. Numa cópia sua, o deploy automático exige três secrets no GitHub — o passo a passo está em [Configurar do zero](docs/vercel-deploy.md#configurar-do-zero).
 
 Para configurar os provedores, consulte também o [guia de chaves dos LLMs](docs/llm-api-keys.md).
 
