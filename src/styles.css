@@ -300,6 +300,11 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
 .sheet {
   position: fixed;
   inset: 0;
+  /* `inset: 0` se ancora no viewport grande, então a barra inferior do
+     navegador no celular cobre o rodapé do painel — e com ele o botão
+     principal. `dvh` acompanha a área realmente visível. */
+  height: 100vh;
+  height: 100dvh;
   z-index: 50;
   display: flex;
   background: var(--bg);
@@ -314,6 +319,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
   background: var(--bg);
 }
 .sheet__head {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -322,8 +328,9 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
 }
 .sheet__head h2 { flex-grow: 1; margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -0.015em; }
 .sheet__head h2:focus { outline: none; }
-.sheet__body { flex: 1; overflow-y: auto; padding: 22px 20px; -webkit-overflow-scrolling: touch; }
+.sheet__body { flex: 1; min-height: 0; overflow-y: auto; padding: 22px 20px; -webkit-overflow-scrolling: touch; }
 .sheet__actions {
+  flex-shrink: 0;
   display: flex;
   gap: 10px;
   padding: 14px 20px calc(14px + env(safe-area-inset-bottom));
