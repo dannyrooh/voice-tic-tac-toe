@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { loadPreferences, savePreferences } from './storage/preferences.ts';
 import { Board } from './components/Board.tsx';
-import { BrandMark, HelpIcon, MoonIcon, SunIcon } from './components/icons.tsx';
+import { Settings } from './components/Settings.tsx';
+import { BrandMark, CloseIcon, GearIcon, HelpIcon, MicIcon, MoonIcon, SunIcon } from './components/icons.tsx';
 import { getComment } from './commentary/comment.ts';
 import { describeMove } from './commentary/events.ts';
 import { type Difficulty, chooseMove } from './game/ai.ts';
 import { findWinner, isDraw, isGameOver } from './game/logic.ts';
 import { AI, HUMAN, boardFrom, canPlay, currentPlayer, gameReducer, initialState } from './game/reducer.ts';
 import { SPEECH_LANG, UI, type Lang } from './i18n.ts';
-import { THEMES, type Theme, applyTheme, watchSystemTheme } from './theme.ts';
+import { type Theme, applyTheme, watchSystemTheme } from './theme.ts';
 import { parseCommand } from './voice/parseCommand.ts';
 import { isAiSpeaking, speak, stopSpeaking, ttsSupported } from './voice/speak.ts';
 import { useSpeechRecognition } from './voice/useSpeechRecognition.ts';
@@ -28,12 +29,15 @@ export default function App() {
   const [resolvedTheme, setResolvedTheme] = useState(() => applyTheme(saved.theme));
   const [onboardingDone, setOnboardingDone] = useState(saved.onboardingDone);
   const [showHelp, setShowHelp] = useState(!saved.onboardingDone);
+  const [showSettings, setShowSettings] = useState(false);
   const [storageAvailable, setStorageAvailable] = useState(true);
   const [state, dispatch] = useReducer(gameReducer, saved, (settings) => ({
     ...initialState(settings.aiStarts ? AI : HUMAN), score: settings.score,
   }));
   const welcomeRef = useRef<HTMLHeadingElement>(null);
+  const settingsRef = useRef<HTMLHeadingElement>(null);
   const helpButtonRef = useRef<HTMLButtonElement>(null);
+  const settingsButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     setStorageAvailable(savePreferences({ lang, difficulty, aiStarts, voiceOut, onboardingDone, theme, score: state.score }));
@@ -60,6 +64,7 @@ export default function App() {
   const turn = currentPlayer(state);
   const aiTurn = !over && turn === AI;
   const lastMove = state.moves.at(-1)?.index ?? null;
+  const dialogOpen = showHelp || showSettings;
 
   // Latest values for callbacks that outlive a render (speech events, timers).
   const live = useRef({ state, lang, voiceOut, aiStarts });
@@ -91,12 +96,12 @@ export default function App() {
 
   // --- AI turn ------------------------------------------------------------
   useEffect(() => {
-    if (showHelp || !aiTurn) return;
+    if (dialogOpen || !aiTurn) return;
     const timer = setTimeout(() => {
       dispatch({ type: 'move', player: AI, index: chooseMove(board, AI, difficulty) });
     }, AI_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [aiTurn, board, difficulty, showHelp]);
+  }, [aiTurn, board, difficulty, dialogOpen]);
 
   // --- Commentary ---------------------------------------------------------
   const commentToken = useRef(0);
@@ -151,9 +156,9 @@ export default function App() {
   );
   const mic = useSpeechRecognition(SPEECH_LANG[lang], onTranscript);
 
-  // --- Keyboard: 1–9 to play, N for a new game ----------------------------
+  // --- Keyboard: 1-9 to play, N for a new game ----------------------------
   useEffect(() => {
-    if (showHelp) return;
+    if (dialogOpen) return;
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (target?.closest('select, input, textarea') || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -162,12 +167,13 @@ export default function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [humanPlay, restart, showHelp]);
+  }, [humanPlay, restart, dialogOpen]);
 
   const openHelp = () => {
     mic.stop();
     stopSpeaking();
     ++commentToken.current;
+    setShowSettings(false);
     setShowHelp(true);
   };
 
@@ -177,36 +183,53 @@ export default function App() {
     if (withMic) mic.start();
   };
 
-  // Focus the dialog when it opens; hand focus back to its button when it closes.
+  // Focus each dialog when it opens; hand focus back to its button when it closes.
   // Skipped on the first render so the page doesn't load with a focus ring.
-  const wasOpen = useRef(showHelp);
+  const wasHelpOpen = useRef(showHelp);
   useEffect(() => {
     if (showHelp) welcomeRef.current?.focus();
-    else if (wasOpen.current) helpButtonRef.current?.focus();
-    wasOpen.current = showHelp;
+    else if (wasHelpOpen.current) helpButtonRef.current?.focus();
+    wasHelpOpen.current = showHelp;
   }, [showHelp]);
 
-  // Esc closes the dialog once onboarding is done (there is a game to go back to).
+  const wasSettingsOpen = useRef(showSettings);
   useEffect(() => {
-    if (!showHelp || !onboardingDone) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowHelp(false); };
+    if (showSettings) settingsRef.current?.focus();
+    else if (wasSettingsOpen.current) settingsButtonRef.current?.focus();
+    wasSettingsOpen.current = showSettings;
+  }, [showSettings]);
+
+  // Esc closes whichever dialog is open (the welcome one only once it has been seen).
+  useEffect(() => {
+    if (!dialogOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (showSettings) setShowSettings(false);
+      else if (onboardingDone) setShowHelp(false);
+    };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [showHelp, onboardingDone]);
+  }, [dialogOpen, showSettings, onboardingDone]);
 
-  // Lock the page behind the dialog so mobile doesn't scroll the game underneath.
+  // Lock the page behind a dialog so mobile doesn't scroll the game underneath.
   useEffect(() => {
-    if (!showHelp) return;
+    if (!dialogOpen) return;
     const previous = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = previous; };
-  }, [showHelp]);
+  }, [dialogOpen]);
 
-  const status = win
+  const result = win
     ? win.winner === HUMAN ? t.youWin : t.aiWins
     : isDraw(board) ? t.draw
-    : aiTurn ? t.aiThinking
-    : t.yourTurn;
+    : null;
+  const outcome = win ? (win.winner === HUMAN ? 'win' : 'loss') : result ? 'draw' : '';
+
+  const tally = [
+    { value: state.score.you, long: t.tallyLong.wins, short: t.tallyShort.wins },
+    { value: state.score.draws, long: t.tallyLong.draws, short: t.tallyShort.draws },
+    { value: state.score.ai, long: t.tallyLong.losses, short: t.tallyShort.losses },
+  ];
 
   return (
     <div className="shell">
@@ -223,13 +246,6 @@ export default function App() {
             </div>
           </div>
           <div className="appbar__actions">
-            <div className="lang" role="group" aria-label="Idioma / Language">
-              {(['pt', 'en'] as const).map((l) => (
-                <button key={l} type="button" aria-pressed={lang === l} onClick={() => setLang(l)}>
-                  {l === 'pt' ? 'PT' : 'EN'}
-                </button>
-              ))}
-            </div>
             <button
               type="button"
               className="iconbtn"
@@ -239,6 +255,16 @@ export default function App() {
             >
               {resolvedTheme === 'dark' ? <SunIcon /> : <MoonIcon />}
             </button>
+            <button
+              type="button"
+              className="iconbtn"
+              ref={settingsButtonRef}
+              aria-label={t.settings}
+              title={t.settings}
+              onClick={() => setShowSettings(true)}
+            >
+              <GearIcon />
+            </button>
             <button type="button" className="iconbtn" ref={helpButtonRef} aria-label={t.help} title={t.help} onClick={openHelp}>
               <HelpIcon />
             </button>
@@ -246,13 +272,32 @@ export default function App() {
         </div>
       </header>
 
-      <main className="app" inert={showHelp || undefined}>
+      <main className="app" inert={dialogOpen || undefined}>
         <section className="play">
-          <div className="play__board card">
-            <p className={`status ${over ? 'status--over' : ''}`} aria-live="polite">
-              <span className={`status__dot ${aiTurn ? 'status__dot--ai' : ''}`} aria-hidden="true" />
-              {status}
-            </p>
+          <div className="stage">
+            {result ? (
+              <div className={`result result--${outcome}`} aria-live="polite">
+                <p className="result__title">{result}</p>
+                <p className="result__sub">{comment || ' '}</p>
+              </div>
+            ) : (
+              <div className="turn" aria-live="polite">
+                <p className="turn__who">
+                  <span className={`turn__dot ${aiTurn ? 'turn__dot--ai' : ''}`} aria-hidden="true" />
+                  {aiTurn ? t.aiThinking : t.yourTurn}
+                </p>
+                <p className="tally" aria-label={t.score}>
+                  {tally.map((item) => (
+                    <span key={item.long} className="tally__item">
+                      <strong>{item.value}</strong>
+                      <span className="tally__long">{item.long}</span>
+                      <span className="tally__short">{item.short}</span>
+                    </span>
+                  ))}
+                </p>
+              </div>
+            )}
+
             <Board
               board={board}
               winLine={win?.line ?? null}
@@ -261,94 +306,60 @@ export default function App() {
               cellLabel={t.cell}
               onPlay={(i) => void humanPlay(i)}
             />
-            <div className="actions">
-              <button type="button" className="btn btn--primary" onClick={() => restart()}>{t.newGame}</button>
-              <button
-                type="button"
-                className="btn"
-                onClick={() => dispatch({ type: 'undo' })}
-                disabled={over || aiTurn || !state.moves.some((m) => m.player === HUMAN)}
-              >
-                {t.undo}
-              </button>
-            </div>
           </div>
 
-          <aside className="panel">
-            <div className={`bubble ${comment ? '' : 'bubble--empty'}`} aria-live="polite">
-              <span className="bubble__who">{t.ai}</span>
-              <p>{comment || '…'}</p>
-            </div>
+          <div className="side">
+            {!result && (
+              <div className={`say ${comment ? '' : 'say--empty'}`} aria-live="polite">
+                <span className="say__who" aria-hidden="true">{t.ai}</span>
+                <p>{comment || '…'}</p>
+              </div>
+            )}
 
-            <div className="mic">
-              {mic.supported ? (
+            <div className="controls">
+              {result ? (
+                <button type="button" className="btn btn--primary btn--big" onClick={() => restart()}>
+                  {t.rematch}
+                </button>
+              ) : mic.supported ? (
                 <button
                   type="button"
-                  className={`btn btn--mic ${mic.listening ? 'is-on' : ''}`}
+                  className={`btn btn--primary btn--big ${mic.listening ? 'is-on' : ''}`}
                   aria-pressed={mic.listening}
                   onClick={mic.listening ? mic.stop : mic.start}
                 >
-                  <span className="mic__dot" aria-hidden="true" />
+                  <MicIcon />
                   {mic.listening ? t.voiceOn : t.voiceOff}
                 </button>
               ) : (
                 <p className="note">{t.voiceUnsupported}</p>
               )}
-              {mic.listening && <p className="note">{t.listening}</p>}
-              {mic.error && <p className="note note--error" role="alert">{t.microphoneBlocked}</p>}
-              {feedback && <p className="note">{feedback}</p>}
-              <p className="hint">{t.hint}</p>
-            </div>
 
-            <div className="score" aria-label={t.score}>
-              <div><strong>{state.score.you}</strong><span>{t.you}</span></div>
-              <div><strong>{state.score.draws}</strong><span>{t.draws}</span></div>
-              <div><strong>{state.score.ai}</strong><span>{t.ai}</span></div>
-            </div>
+              {mic.error ? (
+                <p className="hint hint--error" role="alert">{t.microphoneBlocked}</p>
+              ) : feedback ? (
+                <p className="hint">{feedback}</p>
+              ) : mic.listening ? (
+                <p className="hint">{t.listening}</p>
+              ) : !result ? (
+                <p className="hint">{t.hint}</p>
+              ) : null}
 
-            <div className="settings">
-              {!storageAvailable && <p className="note" role="status">{t.storageUnavailable}</p>}
-              <label>
-                {t.difficulty}
-                <select value={difficulty} onChange={(e) => setDifficulty(e.target.value as Difficulty)}>
-                  {(['easy', 'medium', 'hard'] as const).map((d) => (
-                    <option key={d} value={d}>{t.levels[d]}</option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                {t.theme}
-                <select value={theme} onChange={(e) => setTheme(e.target.value as Theme)}>
-                  {THEMES.map((value) => (
-                    <option key={value} value={value}>{t.themes[value]}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="check">
-                <input type="checkbox" checked={aiStarts} onChange={(e) => {
-                    // Changing who starts begins a fresh game so the setting takes effect.
-                    setAiStarts(e.target.checked);
-                    restart(e.target.checked);
-                  }}
-                />
-                {t.aiStarts}
-              </label>
-              {ttsSupported() && (
-                <label className="check">
-                  <input
-                    type="checkbox"
-                    checked={voiceOut}
-                    onChange={(e) => {
-                      setVoiceOut(e.target.checked);
-                      if (!e.target.checked) stopSpeaking();
-                    }}
-                  />
-                  {t.speakOutLoud}
-                </label>
+              {/* Once the game is over, Revanche already covers "new game"
+                  and undo no longer applies, so the pair would be noise. */}
+              {!result && (
+                <div className="controls__secondary">
+                  <button type="button" className="btn" onClick={() => restart()}>{t.newGame}</button>
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={() => dispatch({ type: 'undo' })}
+                    disabled={aiTurn || !state.moves.some((m) => m.player === HUMAN)}
+                  >
+                    {t.undo}
+                  </button>
+                </div>
               )}
-              <button type="button" className="btn btn--ghost" onClick={() => {
-                if (window.confirm(t.confirmResetScore)) dispatch({ type: 'resetScore' });
-              }}>{t.resetScore}</button>
             </div>
 
             <div className="moves">
@@ -365,31 +376,69 @@ export default function App() {
                 </ol>
               )}
             </div>
-          </aside>
+          </div>
         </section>
-
-        <footer className="footer">
-          React 19 · TypeScript · Web Speech API · Minimax · Claude (opcional) —{' '}
-          <a href="https://github.com/dannyrooh/tic-tac-toe-react">GitHub</a>
-        </footer>
       </main>
 
+      {showSettings && (
+        <div className="sheet" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+          <section className="sheet__card">
+            <header className="sheet__head">
+              <h2 id="settings-title" ref={settingsRef} tabIndex={-1}>{t.settings}</h2>
+              <button type="button" className="iconbtn" aria-label={t.close} onClick={() => setShowSettings(false)}>
+                <CloseIcon />
+              </button>
+            </header>
+            <div className="sheet__body">
+              <Settings
+                t={t}
+                lang={lang}
+                difficulty={difficulty}
+                theme={theme}
+                aiStarts={aiStarts}
+                voiceOut={voiceOut}
+                ttsAvailable={ttsSupported()}
+                storageAvailable={storageAvailable}
+                onLang={setLang}
+                onDifficulty={setDifficulty}
+                onTheme={setTheme}
+                onAiStarts={(value) => {
+                  // Changing who starts begins a fresh game so the setting takes effect.
+                  setAiStarts(value);
+                  restart(value);
+                }}
+                onVoiceOut={(value) => {
+                  setVoiceOut(value);
+                  if (!value) stopSpeaking();
+                }}
+                onResetScore={() => {
+                  if (window.confirm(t.confirmResetScore)) dispatch({ type: 'resetScore' });
+                }}
+              />
+            </div>
+          </section>
+        </div>
+      )}
+
       {showHelp && (
-        <div className="welcome" role="dialog" aria-modal="true" aria-labelledby="welcome-title">
-          <section className="welcome__card">
-            <header className="welcome__head">
+        <div className="sheet" role="dialog" aria-modal="true" aria-labelledby="welcome-title">
+          <section className="sheet__card">
+            <header className="sheet__head">
               <BrandMark />
               <h2 id="welcome-title" ref={welcomeRef} tabIndex={-1}>{t.welcome}</h2>
             </header>
 
-            <div className="welcome__body">
-              <label className="field">
-                <span>{t.languageChoice}</span>
-                <select value={lang} onChange={(e) => setLang(e.target.value as Lang)}>
-                  <option value="pt">Português (Brasil)</option>
-                  <option value="en">English</option>
-                </select>
-              </label>
+            <div className="sheet__body">
+              <div className="field">
+                <span className="field__label">{t.languageChoice}</span>
+                <div className="segmented" role="group" aria-label={t.language}>
+                  {([['pt', 'Português'], ['en', 'English']] as const).map(([value, label]) => (
+                    <button key={value} type="button" aria-pressed={lang === value} onClick={() => setLang(value)}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
               <ol className="steps" aria-label={t.welcomeSteps}>
                 <li><span className="steps__num" aria-hidden="true">1</span><p>{t.rules}</p></li>
@@ -401,7 +450,7 @@ export default function App() {
               <p className="note">{storageAvailable ? t.savedLocally : t.storageUnavailable}</p>
             </div>
 
-            <div className="welcome__actions">
+            <div className="sheet__actions">
               {mic.supported && (
                 <button className="btn btn--primary" type="button" onClick={() => finishWelcome(true)}>{t.startVoice}</button>
               )}
