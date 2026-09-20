@@ -406,8 +406,12 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
   }
   .sheet__head { padding: 16px 14px 16px 24px; }
   .sheet__body { padding: 24px; }
-  .sheet__actions { padding: 16px 24px; justify-content: flex-end; }
+  /* Alinhado à esquerda, na mesma margem do texto do corpo. O botão
+     primário precisa voltar a `width: auto` aqui: a largura total que ele
+     usa no bloco de controles transbordaria esta barra, que não encolhe. */
+  .sheet__actions { padding: 16px 24px; justify-content: flex-start; }
   .sheet__actions .btn { flex: 0 0 auto; }
+  .sheet__actions .btn--primary { width: auto; }
 }
 
 /* --- Desktop: board left, everything else in a calm rail ---------------- */
