@@ -123,15 +123,23 @@ api/
 
 As regras do jogo, a IA e o parser de voz são **TypeScript puro, sem React**, e por isso são fáceis de testar e de reaproveitar em um bot de voz por telefone ou WhatsApp, por exemplo.
 
+## Próxima release
+
+A fase 3 traz a UI v3: o produto deixa de ser um app com um tabuleiro e passa a ser uma partida — HUD, painel do jogador, a IA como personagem com nível e fala em destaque, e um sistema de progressão com rodadas, sequência de vitórias e conquistas. Dois materiais: neon sobre preto no tema escuro, aço escovado no claro.
+
+O planejamento completo está em **[Plano da fase 3](docs/plano-fase-3.md)**: o que entra, em que ordem, os três pontos que precisam de decisão antes de começar, os critérios de aceite de cada fase e o que fica de fora.
+
 ## Histórico
 
 Começou em 2022 como o tutorial oficial do React (componentes de classe, CRA). Em 2026 foi reescrito do zero para mostrar interfaces de voz e oponentes de IA com a stack atual.
+
+Etapas até aqui: jogo clássico por clique (2022) → reescrita por voz com IA minimax (2026) → comentários por LLM → app bar, temas e onboarding responsivo → UI v2, foco no tabuleiro → página Sobre com controle de build.
 
 ---
 
 ## English
 
-**[Play the live demo](https://voice-tic-tac-toe-mu.vercel.app/)** · [Vercel account and deployment guide (Portuguese)](docs/vercel-deploy.md)
+**[Play the live demo](https://voice-tic-tac-toe-mu.vercel.app/)** · [Vercel account and deployment guide (Portuguese)](docs/vercel-deploy.md) · [Next release plan (Portuguese)](docs/plano-fase-3.md)
 
 Tic-tac-toe you play **by voice**. Say "top left", "center" or "five", and an AI opponent replies out loud with context-aware trash talk. It detects when it blocked you, set a trap or won.
 
